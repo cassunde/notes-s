@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Notes-s</title>
+  <link rel="stylesheet" href="node_modules/highlight.js/styles/atom-one-dark.css">
+  <style>
+    body, html {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: #1e1e1e;
+      color: #d4d4d4;
+    }
+    .hidden {
+      display: none !important;
+    }
+    #editor, #preview {
+      height: 100%;
+      width: 100%;
+      padding: 2rem;
+      box-sizing: border-box;
+      font-size: 16px;
+      line-height: 1.7;
+      outline: none;
+    }
+    #editor {
+      background-color: transparent;
+      color: #d4d4d4;
+      border: none;
+      resize: none;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+    }
+    #preview h1, #preview h2, #preview h3, #preview h4, #preview h5, #preview h6 {
+      color: #569cd6;
+    }
+    #preview blockquote {
+      border-left: 3px solid #4a4a4a;
+      margin-left: 0;
+      padding-left: 1.5em;
+      color: #9cdcfe;
+    }
+    /* Styling for inline code, not in a <pre> block */
+    #preview p > code, #preview li > code {
+      background-color: #333;
+      padding: 2px 4px;
+      border-radius: 4px;
+      color: #ce9178;
+    }
+    /* Let the highlight.js theme handle the <pre> block styling */
+    #preview pre {
+      padding: 1em;
+      border-radius: 4px;
+    }
+    #toggle-view-btn {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      padding: 10px 15px;
+      font-size: 14px;
+      background-color: #007acc;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      z-index: 1000;
+    }
+    #command-palette {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 300px;
+      background-color: #252526;
+      border: 1px solid #4a4a4a;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+      z-index: 2000;
+    }
+    #command-palette ul {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+    #command-palette li {
+      padding: 12px 15px;
+      cursor: pointer;
+      border-bottom: 1px solid #333;
+    }
+    #command-palette li:last-child {
+      border-bottom: none;
+    }
+    #command-palette li:hover {
+      background-color: #007acc;
+    }
+  </style>
+</head>
+<body>
+  <textarea id="editor" spellcheck="false"></textarea>
+  <div id="preview" class="hidden"></div>
+  <button id="toggle-view-btn">Preview</button>
+
+  <div id="command-palette" class="hidden">
+    <ul id="command-list"></ul>
+  </div>
+
+  <script>
+    const editor = document.getElementById('editor');
+    const preview = document.getElementById('preview');
+    const toggleBtn = document.getElementById('toggle-view-btn');
+    const commandPalette = document.getElementById('command-palette');
+    const commandList = document.getElementById('command-list');
+
+    let isPreviewMode = false;
+    let isPaletteOpen = false;
+
+    // --- Command Palette ---
+    const commands = [
+      {
+        name: 'Table',
+        action: () => {
+          const tableMarkdown = `| Header 1 | Header 2 |\n|----------|----------|\n| Cell 1   | Cell 2   |\n| Cell 3   | Cell 4   |`;
+          insertTextAtCursor(tableMarkdown);
+        }
+      }
+    ];
+
+    function insertTextAtCursor(text) {
+      const start = editor.selectionStart;
+      const end = editor.selectionEnd;
+      const originalValue = editor.value;
+      
+      editor.value = originalValue.substring(0, start) + text + originalValue.substring(end);
+      editor.selectionStart = editor.selectionEnd = start + text.length;
+      editor.focus();
+    }
+
+    function renderPalette() {
+      commandList.innerHTML = '';
+      commands.forEach(command => {
+        const li = document.createElement('li');
+        li.textContent = command.name;
+        li.addEventListener('click', () => {
+          command.action();
+          togglePalette(false);
+        });
+        commandList.appendChild(li);
+      });
+    }
+
+    function togglePalette(show) {
+      isPaletteOpen = typeof show === 'boolean' ? show : !isPaletteOpen;
+      if (isPaletteOpen) {
+        renderPalette();
+        commandPalette.classList.remove('hidden');
+      } else {
+        commandPalette.classList.add('hidden');
+      }
+    }
+
+    editor.addEventListener('keydown', (e) => {
+      if (e.ctrlKey && e.code === 'Space') {
+        e.preventDefault();
+        togglePalette();
+      }
+    });
+
+    // --- File Handling ---
+    window.electronAPI.onFileOpened((_event, data) => {
+      editor.value = data.content;
+    });
+
+    window.electronAPI.onNewFile(() => {
+      editor.value = '';
+      if (isPreviewMode) {
+        toggleView(); // Switch back to editor view
+      }
+    });
+
+    window.electronAPI.onRequestSaveFile(() => {
+      window.electronAPI.saveFile(editor.value);
+    });
+
+    window.electronAPI.onTogglePreview(() => {
+      isPreviewMode = !isPreviewMode;
+      toggleView();
+    });
+
+    // --- View Toggling ---
+    toggleBtn.addEventListener('click', () => {
+      isPreviewMode = !isPreviewMode;
+      toggleView();
+    });
+
+    async function toggleView() {
+      if (isPreviewMode) {
+        const markdown = editor.value;
+        const html = await window.electronAPI.renderMarkdown(markdown);
+        preview.innerHTML = html;
+        
+        editor.classList.add('hidden');
+        preview.classList.remove('hidden');
+        toggleBtn.textContent = 'Edit';
+      } else {
+        preview.classList.add('hidden');
+        editor.classList.remove('hidden');
+        toggleBtn.textContent = 'Preview';
+        editor.focus();
+      }
+    }
+  </script>
+</body>
+</html>
+
