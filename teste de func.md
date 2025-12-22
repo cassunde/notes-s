@@ -6,9 +6,11 @@ Não é preciso ter muitas coisas apenas conseguir escrever de froma simples, se
 
 Outra coisa importante é conseguir incluir formatações de forma rápida, usando atalhos no teclado.
 
+### Code
+Preciso implementar a formatação dos blocos de códigos
+
 ```js
 function test(){
   console.log("ssss")
 }
 ```
-

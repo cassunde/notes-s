@@ -4,22 +4,78 @@ const path = require('path');
 const { marked } = require('marked');
 const hljs = require('highlight.js');
 
-// Configure marked to use highlight.js
-marked.setOptions({
-  highlight: function(code, lang) {
-    const language = hljs.getLanguage(lang) ? lang : 'plaintext';
-    return hljs.highlight(code, { language }).value;
-  }
-});
-
 let mainWindow;
 let currentFilePath = null;
 
-// Get file path from command line arguments
-const filePathArg = process.argv.find(arg => arg.endsWith('.md'));
-if (filePathArg) {
-  currentFilePath = path.resolve(filePathArg);
+// Prevent multiple instances of the app
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on('second-instance', (event, commandLine, workingDirectory) => {
+    // Someone tried to run a second instance, we should focus our window.
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+
+      // Handle file opening from second instance
+      const filePath = commandLine.find(arg => arg.endsWith('.md'));
+      if (filePath) {
+        openFile(filePath);
+      }
+    }
+  });
 }
+
+function openFile(filePath) {
+  fs.readFile(filePath, 'utf-8', (err, data) => {
+    if (err) {
+      console.error('Failed to open file:', err);
+      return;
+    }
+    currentFilePath = filePath;
+    mainWindow.webContents.send('file-opened', { filePath, content: data });
+  });
+}
+
+// Register IPC handlers once, outside of createWindow
+ipcMain.handle('render-markdown', (event, markdown) => {
+  return marked(markdown, {
+    highlight: function(code, lang) {
+      const language = hljs.getLanguage(lang) ? lang : 'plaintext';
+      return hljs.highlight(code, { language }).value;
+    }
+  });
+});
+
+ipcMain.on('save-file', (event, content) => {
+  const save = (filePath) => {
+    fs.writeFile(filePath, content, 'utf-8', err => {
+      if (err) {
+        console.error('Failed to save file:', err);
+      } else {
+        console.log('File saved successfully:', filePath);
+        currentFilePath = filePath;
+      }
+    });
+  };
+
+  if (currentFilePath) {
+    save(currentFilePath);
+  } else {
+    dialog.showSaveDialog(mainWindow, {
+      title: 'Save Markdown File',
+      defaultPath: 'untitled.md',
+      filters: [{ name: 'Markdown Files', extensions: ['md'] }]
+    }).then(result => {
+      if (!result.canceled && result.filePath) {
+        save(result.filePath);
+      }
+    });
+  }
+});
+
 
 function createWindow () {
   mainWindow = new BrowserWindow({
@@ -32,49 +88,11 @@ function createWindow () {
   });
 
   mainWindow.loadFile('index.html');
-  // mainWindow.webContents.openDevTools();
 
   mainWindow.webContents.on('did-finish-load', () => {
-    if (currentFilePath) {
-      fs.readFile(currentFilePath, 'utf-8', (err, data) => {
-        if (err) {
-          console.error('Failed to open file from argument:', err);
-          return;
-        }
-        mainWindow.webContents.send('file-opened', { filePath: currentFilePath, content: data });
-      });
-    }
-  });
-
-  ipcMain.handle('render-markdown', (event, markdown) => {
-    return marked(markdown);
-  });
-
-  // Handle saving file content
-  ipcMain.on('save-file', (event, content) => {
-    const save = (filePath) => {
-      fs.writeFile(filePath, content, 'utf-8', err => {
-        if (err) {
-          console.error('Failed to save file:', err);
-        } else {
-          console.log('File saved successfully:', filePath);
-          currentFilePath = filePath; // Update current file path
-        }
-      });
-    };
-
-    if (currentFilePath) {
-      save(currentFilePath);
-    } else {
-      dialog.showSaveDialog(mainWindow, {
-        title: 'Save Markdown File',
-        defaultPath: 'untitled.md',
-        filters: [{ name: 'Markdown Files', extensions: ['md'] }]
-      }).then(result => {
-        if (!result.canceled && result.filePath) {
-          save(result.filePath);
-        }
-      });
+    const filePathArg = process.argv.find(arg => arg.endsWith('.md'));
+    if (filePathArg) {
+      openFile(path.resolve(filePathArg));
     }
   });
 }
@@ -93,21 +111,13 @@ app.whenReady().then(() => {
       properties: ['openFile']
     }).then(result => {
       if (!result.canceled && result.filePaths.length > 0) {
-        const filePath = result.filePaths[0];
-        fs.readFile(filePath, 'utf-8', (err, data) => {
-          if (err) {
-            console.error('Failed to open file:', err);
-            return;
-          }
-          currentFilePath = filePath; // Store the path of the newly opened file
-          mainWindow.webContents.send('file-opened', { filePath, content: data });
-        });
+        openFile(result.filePaths[0]);
       }
     });
   });
 
   globalShortcut.register('CommandOrControl+N', () => {
-    currentFilePath = null; // Reset the current file path
+    currentFilePath = null;
     mainWindow.webContents.send('new-file');
   });
 

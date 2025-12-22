@@ -1,0 +1,7 @@
+A JavaScript error occurred in the main process
+Uncaught Exception:
+Error: Attempted to register a second handler for 'render-markdown'
+at IpcMainImpl.handle (node:electron/js2c/browser_init:2:109604)
+at createWindow (/Users/mattheuscassunde/workspace/notes-s/dist/mac-arm64/Notes-s.app/Contents/Resources/app.asar/index.js:41:11)
+at EventEmitter.<anonymous> (/Users/mattheuscassunde/workspace/notes-s/dist/mac-arm64/Notes-s.app/Contents/Resources/app.asar/index.js:118:7)
+at EventEmitter.emit (node:events:519:28)
