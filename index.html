@@ -198,6 +198,29 @@
       toggleView();
     });
 
+    window.electronAPI.onTriggerGemini(async () => {
+      const selectionStart = editor.selectionStart;
+      const selectionEnd = editor.selectionEnd;
+      const selectedText = editor.value.substring(selectionStart, selectionEnd);
+
+      if (!selectedText) {
+        console.log('Nenhum texto selecionado para enviar ao Gemini.');
+        return;
+      }
+
+      // Mostra um indicador de carregamento
+      const originalText = editor.value;
+      const loadingMessage = '\n\n[ 🤖 Processando com o Gemini... ]';
+      editor.value = originalText.substring(0, selectionEnd) + loadingMessage + originalText.substring(selectionEnd);
+
+      const response = await window.electronAPI.callGeminiAPI(selectedText);
+      
+      // Remove o indicador de carregamento e insere a resposta
+      const textBefore = originalText.substring(0, selectionEnd);
+      const textAfter = originalText.substring(selectionEnd);
+      editor.value = textBefore + '\n' + response + textAfter;
+    });
+
     // --- View Toggling ---
     async function toggleView() {
       if (isPreviewMode) {

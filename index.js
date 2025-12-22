@@ -125,11 +125,64 @@ app.whenReady().then(() => {
     mainWindow.webContents.send('toggle-preview');
   });
 
+  globalShortcut.register('CommandOrControl+G', () => {
+    mainWindow.webContents.send('trigger-gemini');
+  });
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow();
     }
   });
+});
+
+ipcMain.handle('call-gemini-api', async (event, selectedText) => {
+  // !! AÇÃO NECESSÁRIA DO USUÁRIO !!
+  // Para esta função funcionar, você precisa:
+  // 1. Ter uma chave de API para a API do Gemini (Google AI Studio).
+  // 2. Armazenar essa chave de forma segura, por exemplo, em variáveis de ambiente.
+  //    NÃO coloque a chave diretamente no código.
+  // 3. Implementar a lógica de chamada da API aqui.
+
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    const errorMessage = `
+---------------------------------
+ERRO: Chave da API do Gemini não encontrada.
+Configure a variável de ambiente GEMINI_API_KEY para usar esta funcionalidade.
+---------------------------------`;
+    return errorMessage;
+  }
+
+  // Exemplo de como fazer a chamada (requer 'node-fetch' ou similar)
+  try {
+    const fetch = (await import('node-fetch')).default;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'x-goog-api-key': apiKey 
+      },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: selectedText }] }]
+      })
+    });
+    const data = await response.json();
+    return data.candidates[0].content.parts[0].text;
+
+    // Retornando uma resposta de exemplo por enquanto
+//     return `
+
+// --- RESPOSTA DA API (EXEMPLO) ---
+// O texto selecionado foi: "${selectedText}".
+// (Implemente a chamada real à API em index.js para ver uma resposta real.)
+// ---------------------------------`;
+
+  } catch (error) {
+    console.error('Erro ao chamar a API do Gemini:', error);
+    return 'Erro ao processar a requisição para a API do Gemini.';
+  }
 });
 
 app.on('will-quit', () => {
