@@ -1,0 +1,39 @@
+name: Build macOS App
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-macos:
+    # O job será executado em uma máquina virtual macOS fornecida pelo GitHub
+    runs-on: macos-latest
+
+    steps:
+      # 1. Clona o seu repositório para dentro da máquina virtual
+      - name: Check out repository code
+        uses: actions/checkout@v4
+
+      # 2. Configura o ambiente Node.js
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20' # Usa uma versão LTS recente do Node.js
+
+      # 3. Instala as dependências do projeto
+      - name: Install dependencies
+        run: npm install
+
+      # 4. Executa o script de build que configuramos no package.json
+      - name: Build the application
+        run: npm run build
+
+      # 5. Carrega o arquivo .dmg gerado como um artefato
+      - name: Upload DMG Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          # O nome do artefato que aparecerá na página da Action
+          name: Notes-s-macOS-dmg
+          # O caminho para o arquivo a ser carregado. O * é usado para
+          # pegar o arquivo mesmo que o nome mude (ex: com número de versão)
+          path: dist/mac-arm64/*.dmg
