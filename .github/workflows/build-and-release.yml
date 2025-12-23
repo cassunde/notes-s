@@ -26,7 +26,7 @@ jobs:
 
       # 4. Executa o script de build que configuramos no package.json
       - name: Build the application
-        run: ./install.sh
+        run: npm run build
 
       # 5. Carrega o arquivo .dmg gerado como um artefato
       - name: Upload DMG Artifact

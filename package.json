@@ -32,9 +32,12 @@
       "node_modules/"
     ],
     "mac": {
-      "target": "dir",
+      "target": "dmg",
       "icon": "build/icon.icns"
     },
+     "directories": {
+        "output": "dist"
+    } ,
     "win": {
       "icon": "build/icon.ico"
     },
