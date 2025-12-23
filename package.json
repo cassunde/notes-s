@@ -17,6 +17,7 @@
     "electron-builder": "^26.0.12"
   },
   "dependencies": {
+    "dotenv": "^17.2.3",
     "highlight.js": "^11.11.1",
     "marked": "^17.0.1",
     "node-fetch": "^2.7.0"
@@ -35,9 +36,9 @@
       "target": "dmg",
       "icon": "build/icon.icns"
     },
-     "directories": {
-        "output": "dist"
-    } ,
+    "directories": {
+      "output": "dist"
+    },
     "win": {
       "icon": "build/icon.ico"
     },

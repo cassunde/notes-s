@@ -1,6 +1,11 @@
 const { app, BrowserWindow, ipcMain, dialog, globalShortcut } = require('electron');
 const fs = require('fs');
 const path = require('path');
+
+// Carrega as variáveis de ambiente de um arquivo .env na pasta home do usuário
+// Isso garante que a chave da API não precisa estar no terminal e funciona com o app empacotado.
+require('dotenv').config({ path: path.join(app.getPath('home'), '.notes-s.env') });
+
 const { marked } = require('marked');
 const hljs = require('highlight.js');
 
