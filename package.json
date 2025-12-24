@@ -33,7 +33,7 @@
       "node_modules/"
     ],
     "mac": {
-      "target": "dmg",
+      "target": "dir",
       "icon": "build/icon.icns"
     },
     "directories": {

@@ -9,8 +9,8 @@ require('dotenv').config({ path: path.join(app.getPath('home'), '.notes-s.env') 
 const { marked } = require('marked');
 const hljs = require('highlight.js');
 
-let mainWindow;
-let currentFilePath = null;
+let windows = new Set();
+
 
 // Prevent multiple instances of the app
 const gotTheLock = app.requestSingleInstanceLock();
@@ -19,28 +19,27 @@ if (!gotTheLock) {
   app.quit();
 } else {
   app.on('second-instance', (event, commandLine, workingDirectory) => {
-    // Someone tried to run a second instance, we should focus our window.
-    if (mainWindow) {
-      if (mainWindow.isMinimized()) mainWindow.restore();
-      mainWindow.focus();
-
-      // Handle file opening from second instance
-      const filePath = commandLine.find(arg => arg.endsWith('.md'));
-      if (filePath) {
-        openFile(filePath);
+    const filePath = commandLine.find(arg => arg.endsWith('.md'));
+    if (filePath) {
+      createWindow(filePath);
+    } else if (windows.size > 0) {
+      const window = windows.values().next().value;
+      if (window) {
+        if (window.isMinimized()) window.restore();
+        window.focus();
       }
     }
   });
 }
 
-function openFile(filePath) {
+function openFile(window, filePath) {
   fs.readFile(filePath, 'utf-8', (err, data) => {
     if (err) {
       console.error('Failed to open file:', err);
       return;
     }
-    currentFilePath = filePath;
-    mainWindow.webContents.send('file-opened', { filePath, content: data });
+    window.filePath = filePath;
+    window.webContents.send('file-opened', { filePath, content: data });
   });
 }
 
@@ -55,21 +54,23 @@ ipcMain.handle('render-markdown', (event, markdown) => {
 });
 
 ipcMain.on('save-file', (event, content) => {
+  const window = BrowserWindow.fromWebContents(event.sender);
   const save = (filePath) => {
     fs.writeFile(filePath, content, 'utf-8', err => {
       if (err) {
         console.error('Failed to save file:', err);
       } else {
         console.log('File saved successfully:', filePath);
-        currentFilePath = filePath;
+        window.filePath = filePath;
+        window.webContents.send('file-saved', filePath);
       }
     });
   };
 
-  if (currentFilePath) {
-    save(currentFilePath);
+  if (window.filePath) {
+    save(window.filePath);
   } else {
-    dialog.showSaveDialog(mainWindow, {
+    dialog.showSaveDialog(window, {
       title: 'Save Markdown File',
       defaultPath: 'untitled.md',
       filters: [{ name: 'Markdown Files', extensions: ['md'] }]
@@ -81,9 +82,43 @@ ipcMain.on('save-file', (event, content) => {
   }
 });
 
+ipcMain.on('open-note-by-title', (event, title) => {
+  const window = BrowserWindow.fromWebContents(event.sender);
+  const currentFilePath = window.filePath;
 
-function createWindow () {
-  mainWindow = new BrowserWindow({
+  if (!currentFilePath) {
+    dialog.showErrorBox('Cannot Open Note', 'Please save the current file first to establish a directory for related notes.');
+    return;
+  }
+
+  const currentDir = path.dirname(currentFilePath);
+  const targetPath = path.join(currentDir, `${title}.md`);
+
+  if (fs.existsSync(targetPath)) {
+    openFile(window, targetPath);
+  } else {
+    dialog.showMessageBox(window, {
+      type: 'question',
+      buttons: ['Yes', 'No'],
+      title: 'Create Note',
+      message: `The note "${title}" does not exist. Would you like to create it?`
+    }).then(result => {
+      if (result.response === 0) { // 'Yes'
+        fs.writeFile(targetPath, '', 'utf-8', (err) => {
+          if (err) {
+            dialog.showErrorBox('Error Creating File', `Failed to create note: ${err.message}`);
+            return;
+          }
+          openFile(window, targetPath);
+        });
+      }
+    });
+  }
+});
+
+
+function createWindow(filePath) {
+  const window = new BrowserWindow({
     width: 800,
     height: 600,
     webPreferences: {
@@ -92,63 +127,75 @@ function createWindow () {
     title: 'Notes-s'
   });
 
-  mainWindow.loadFile('index.html');
+  window.loadFile('index.html');
 
-  mainWindow.webContents.on('did-finish-load', () => {
-    const filePathArg = process.argv.find(arg => arg.endsWith('.md'));
-    if (filePathArg) {
-      openFile(path.resolve(filePathArg));
+  window.webContents.on('did-finish-load', () => {
+    if (filePath) {
+      openFile(window, filePath);
     }
   });
+
+  window.on('closed', () => {
+    windows.delete(window);
+  });
+
+  windows.add(window);
+  return window;
 }
 
 app.whenReady().then(() => {
-  createWindow();
+  const filePathArg = process.argv.find(arg => arg.endsWith('.md'));
+  if (filePathArg) {
+    createWindow(path.resolve(filePathArg));
+  } else {
+    createWindow();
+  }
 
   globalShortcut.register('CommandOrControl+S', () => {
-    mainWindow.webContents.send('request-save-file');
+    const window = BrowserWindow.getFocusedWindow();
+    if (window) {
+      window.webContents.send('request-save-file');
+    }
   });
 
   globalShortcut.register('CommandOrControl+O', () => {
-    dialog.showOpenDialog(mainWindow, {
+    dialog.showOpenDialog({
       title: 'Open Markdown File',
       filters: [{ name: 'Markdown Files', extensions: ['md'] }],
       properties: ['openFile']
     }).then(result => {
       if (!result.canceled && result.filePaths.length > 0) {
-        openFile(result.filePaths[0]);
+        createWindow(result.filePaths[0]);
       }
     });
   });
 
   globalShortcut.register('CommandOrControl+N', () => {
-    currentFilePath = null;
-    mainWindow.webContents.send('new-file');
+    createWindow();
   });
 
   globalShortcut.register('CommandOrControl+P', () => {
-    mainWindow.webContents.send('toggle-preview');
+    const window = BrowserWindow.getFocusedWindow();
+    if (window) {
+      window.webContents.send('toggle-preview');
+    }
   });
 
   globalShortcut.register('CommandOrControl+G', () => {
-    mainWindow.webContents.send('trigger-gemini');
+    const window = BrowserWindow.getFocusedWindow();
+    if (window) {
+      window.webContents.send('trigger-gemini');
+    }
   });
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
+    if (windows.size === 0) {
       createWindow();
     }
   });
 });
 
 ipcMain.handle('call-gemini-api', async (event, selectedText) => {
-  // !! AÇÃO NECESSÁRIA DO USUÁRIO !!
-  // Para esta função funcionar, você precisa:
-  // 1. Ter uma chave de API para a API do Gemini (Google AI Studio).
-  // 2. Armazenar essa chave de forma segura, por exemplo, em variáveis de ambiente.
-  //    NÃO coloque a chave diretamente no código.
-  // 3. Implementar a lógica de chamada da API aqui.
-
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     const errorMessage = `
@@ -159,30 +206,36 @@ Configure a variável de ambiente GEMINI_API_KEY para usar esta funcionalidade.
     return errorMessage;
   }
 
-  // Exemplo de como fazer a chamada (requer 'node-fetch' ou similar)
   try {
     const fetch = (await import('node-fetch')).default;
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent`;
+
+    const youtubeUrlRegex = /(https?:\/\/(?:www\.)?youtube\.com\/watch\?v=[\w-]+)/;
+    const youtubeUrlMatch = selectedText.match(youtubeUrlRegex);
+
+    let parts = [{ text: selectedText }];
+
+    if (youtubeUrlMatch) {
+      const youtubeUrl = youtubeUrlMatch[0];
+      parts.push({
+        file_data: {
+          file_uri: youtubeUrl
+        }
+      });
+    }
+
     const response = await fetch(url, {
       method: 'POST',
-      headers: { 
+      headers: {
         'Content-Type': 'application/json',
-        'x-goog-api-key': apiKey 
+        'x-goog-api-key': apiKey
       },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: selectedText }] }]
+        contents: [{ parts: parts }]
       })
     });
     const data = await response.json();
     return data.candidates[0].content.parts[0].text;
-
-    // Retornando uma resposta de exemplo por enquanto
-//     return `
-
-// --- RESPOSTA DA API (EXEMPLO) ---
-// O texto selecionado foi: "${selectedText}".
-// (Implemente a chamada real à API em index.js para ver uma resposta real.)
-// ---------------------------------`;
 
   } catch (error) {
     console.error('Erro ao chamar a API do Gemini:', error);

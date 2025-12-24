@@ -85,6 +85,14 @@
       background-color: #0366d6;
       color: white;
     }
+    .wikilink {
+      color: #0366d6;
+      text-decoration: none;
+      cursor: pointer;
+    }
+    .wikilink:hover {
+      text-decoration: underline;
+    }
   </style>
 </head>
 <body>
@@ -165,14 +173,24 @@
     });
 
     // --- File Handling ---
-    window.electronAPI.onFileOpened((_event, data) => {
+    window.electronAPI.onFileOpened(async (_event, data) => {
       editor.value = data.content;
-      focusAndSetCursorToStart();
+      document.title = data.filePath;
+      if (isPreviewMode) {
+        await updatePreview();
+      } else {
+        focusAndSetCursorToStart();
+      }
+    });
+
+    window.electronAPI.onFileSaved((_event, filePath) => {
+      document.title = filePath;
     });
 
     window.electronAPI.onNewFile(() => {
       editor.value = '';
       if (isPreviewMode) {
+        isPreviewMode = false;
         toggleView(); // Switch back to editor view
       }
       focusAndSetCursorToStart();
@@ -210,13 +228,34 @@
       editor.value = textBefore + '\n' + response + textAfter;
     });
 
+    // --- Wikilink Handling ---
+    preview.addEventListener('click', (e) => {
+      const link = e.target.closest('.wikilink');
+      if (link) {
+        e.preventDefault();
+        const noteTitle = link.dataset.noteTitle;
+        window.electronAPI.openNoteByTitle(noteTitle);
+      }
+    });
+
+    function processWikiLinks(html) {
+      const wikilinkRegex = /\[\[(.*?)\]\]/g;
+      return html.replace(wikilinkRegex, (match, noteTitle) => {
+        return `<a href="#" class="wikilink" data-note-title="${noteTitle}">${noteTitle}</a>`;
+      });
+    }
+
+    async function updatePreview() {
+      const markdown = editor.value;
+      let html = await window.electronAPI.renderMarkdown(markdown);
+      html = processWikiLinks(html);
+      preview.innerHTML = html;
+    }
+
     // --- View Toggling ---
     async function toggleView() {
       if (isPreviewMode) {
-        const markdown = editor.value;
-        const html = await window.electronAPI.renderMarkdown(markdown);
-        preview.innerHTML = html;
-        
+        await updatePreview();
         editor.classList.add('hidden');
         preview.classList.remove('hidden');
       } else {
@@ -228,4 +267,3 @@
   </script>
 </body>
 </html>
-
