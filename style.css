@@ -1,0 +1,68 @@
+body, html {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  overflow: hidden; /* Impede a barra de rolagem no corpo da página */
+}
+.hidden {
+  display: none !important;
+}
+#editor, #preview {
+  height: 100%;
+  width: 100%;
+  padding: 2rem;
+  box-sizing: border-box;
+  font-size: 16px;
+  line-height: 1.7;
+  outline: none;
+  overflow-y: auto; /* Adiciona a barra de rolagem apenas aqui */
+}
+#editor {
+  border: none;
+  resize: none;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+}
+#preview h1, #preview h2 {
+  padding-bottom: .3em;
+}
+#preview blockquote {
+  padding: 0 1em;
+}
+#preview p > code, #preview li > code {
+  padding: .2em .4em;
+  border-radius: 3px;
+}
+#preview pre {
+  padding: 1em;
+  border-radius: 4px;
+}
+#command-palette {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 300px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  z-index: 2000;
+}
+#command-palette ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+#command-palette li {
+  padding: 12px 15px;
+  cursor: pointer;
+}
+#command-palette li:last-child {
+  border-bottom: none;
+}
+.wikilink {
+  text-decoration: none;
+  cursor: pointer;
+}
+.wikilink:hover {
+  text-decoration: underline;
+}

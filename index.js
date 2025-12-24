@@ -116,7 +116,6 @@ ipcMain.on('open-note-by-title', (event, title) => {
   }
 });
 
-
 function createWindow(filePath) {
   const window = new BrowserWindow({
     width: 800,
@@ -185,6 +184,13 @@ app.whenReady().then(() => {
     const window = BrowserWindow.getFocusedWindow();
     if (window) {
       window.webContents.send('trigger-gemini');
+    }
+  });
+
+  globalShortcut.register('CommandOrControl+D', () => {
+    const window = BrowserWindow.getFocusedWindow();
+    if (window) {
+      window.webContents.send('toggle-theme');
     }
   });
 

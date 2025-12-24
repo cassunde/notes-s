@@ -1,0 +1,45 @@
+body, html {
+  background-color: #1c1c1c;
+  color: #c5c5c5;
+}
+
+#editor {
+  background-color: transparent;
+  color: #c5c5c5;
+}
+
+#preview h1, #preview h2 {
+  border-bottom: 1px solid #333;
+}
+
+#preview blockquote {
+  border-left: .25em solid #555;
+  color: #999;
+}
+
+#preview p > code, #preview li > code {
+  background-color: #333;
+}
+
+#preview pre {
+  background-color: #222;
+}
+
+#command-palette {
+  background-color: #222;
+  border: 1px solid #333;
+  color: #c5c5c5;
+}
+
+#command-palette li {
+  border-bottom: 1px solid #333;
+}
+
+#command-palette li:hover {
+  background-color: #0366d6;
+  color: white;
+}
+
+.wikilink {
+  color: #0366d6;
+}

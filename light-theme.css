@@ -1,0 +1,45 @@
+body, html {
+  background-color: #ffffff;
+  color: #24292e;
+}
+
+#editor {
+  background-color: transparent;
+  color: #24292e;
+}
+
+#preview h1, #preview h2 {
+  border-bottom: 1px solid #eaecef;
+}
+
+#preview blockquote {
+  border-left: .25em solid #dfe2e5;
+  color: #6a737d;
+}
+
+#preview p > code, #preview li > code {
+  background-color: rgba(27,31,35,.05);
+}
+
+#preview pre {
+  background-color: #f6f8fa;
+}
+
+#command-palette {
+  background-color: #f6f8fa;
+  border: 1px solid #dfe2e5;
+  color: #24292e;
+}
+
+#command-palette li {
+  border-bottom: 1px solid #eaecef;
+}
+
+#command-palette li:hover {
+  background-color: #0366d6;
+  color: white;
+}
+
+.wikilink {
+  color: #0366d6;
+}

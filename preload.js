@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onNewFile: (callback) => ipcRenderer.on('new-file', callback),
   onTogglePreview: (callback) => ipcRenderer.on('toggle-preview', callback),
   onTriggerGemini: (callback) => ipcRenderer.on('trigger-gemini', callback),
+  onToggleTheme: (callback) => ipcRenderer.on('toggle-theme', callback),
 
   // Renderer to Main (invokable)
   callGeminiAPI: (text) => ipcRenderer.invoke('call-gemini-api', text)
