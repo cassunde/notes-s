@@ -14,7 +14,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onTogglePreview: (callback) => ipcRenderer.on('toggle-preview', callback),
   onTriggerGemini: (callback) => ipcRenderer.on('trigger-gemini', callback),
   onToggleTheme: (callback) => ipcRenderer.on('toggle-theme', callback),
+  onTriggerCommandExecution: (callback) => ipcRenderer.on('trigger-command-execution', callback),
 
   // Renderer to Main (invokable)
-  callGeminiAPI: (text) => ipcRenderer.invoke('call-gemini-api', text)
+  callGeminiAPI: (text) => ipcRenderer.invoke('call-gemini-api', text),
+  executeCommand: (command, params) => ipcRenderer.invoke('execute-command', command, params)
 });

@@ -1,6 +1,7 @@
-const { app, BrowserWindow, ipcMain, dialog, globalShortcut } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Menu } = require('electron');
 const fs = require('fs');
 const path = require('path');
+const { spawn } = require('child_process');
 
 // Carrega as variáveis de ambiente de um arquivo .env na pasta home do usuário
 // Isso garante que a chave da API não precisa estar no terminal e funciona com o app empacotado.
@@ -143,56 +144,154 @@ function createWindow(filePath) {
 }
 
 app.whenReady().then(() => {
+  // --- Menu Definition ---
+  const menuTemplate = [
+    // { role: 'appMenu' } for macOS
+    ...(process.platform === 'darwin' ? [{
+      label: app.name,
+      submenu: [
+        { role: 'about' },
+        { type: 'separator' },
+        { role: 'services' },
+        { type: 'separator' },
+        { role: 'hide' },
+        { role: 'hideOthers' },
+        { role: 'unhide' },
+        { type: 'separator' },
+        { role: 'quit' }
+      ]
+    }] : []),
+    // { role: 'fileMenu' }
+    {
+      label: 'File',
+      submenu: [
+        {
+          label: 'New Note',
+          accelerator: 'CmdOrCtrl+N',
+          click: () => {
+            createWindow();
+          }
+        },
+        {
+          label: 'Open Note',
+          accelerator: 'CmdOrCtrl+O',
+          click: () => {
+            dialog.showOpenDialog({
+              title: 'Open Markdown File',
+              filters: [{ name: 'Markdown Files', extensions: ['md'] }],
+              properties: ['openFile']
+            }).then(result => {
+              if (!result.canceled && result.filePaths.length > 0) {
+                createWindow(result.filePaths[0]);
+              }
+            });
+          }
+        },
+        {
+          label: 'Save Note',
+          accelerator: 'CmdOrCtrl+S',
+          click: () => {
+            const window = BrowserWindow.getFocusedWindow();
+            if (window) {
+              window.webContents.send('request-save-file');
+            }
+          }
+        },
+        { type: 'separator' },
+        process.platform === 'darwin' ? { role: 'close' } : { role: 'quit' }
+      ]
+    },
+    // { role: 'editMenu' }
+    {
+      label: 'Edit',
+      submenu: [
+        { role: 'undo' },
+        { role: 'redo' },
+        { type: 'separator' },
+        { role: 'cut' },
+        { role: 'copy' },
+        { role: 'paste' },
+        { type: 'separator' },
+        {
+          label: 'Execute Command',
+          accelerator: 'CmdOrCtrl+J',
+          click: () => {
+            const window = BrowserWindow.getFocusedWindow();
+            if (window) {
+              window.webContents.send('trigger-command-execution');
+            }
+          }
+        },
+        {
+          label: 'Trigger Gemini',
+          accelerator: 'CmdOrCtrl+G',
+          click: () => {
+            const window = BrowserWindow.getFocusedWindow();
+            if (window) {
+              window.webContents.send('trigger-gemini');
+            }
+          }
+        }
+      ]
+    },
+    // { role: 'viewMenu' }
+    {
+      label: 'View',
+      submenu: [
+        {
+          label: 'Toggle Preview',
+          accelerator: 'CmdOrCtrl+P',
+          click: () => {
+            const window = BrowserWindow.getFocusedWindow();
+            if (window) {
+              window.webContents.send('toggle-preview');
+            }
+          }
+        },
+        {
+          label: 'Toggle Theme',
+          accelerator: 'CmdOrCtrl+D',
+          click: () => {
+            const window = BrowserWindow.getFocusedWindow();
+            if (window) {
+              window.webContents.send('toggle-theme');
+            }
+          }
+        },
+        { type: 'separator' },
+        { role: 'reload' },
+        { role: 'forceReload' },
+        { role: 'toggleDevTools' }
+      ]
+    },
+    // { role: 'windowMenu' }
+    {
+      label: 'Window',
+      submenu: [
+        { role: 'minimize' },
+        { role: 'zoom' },
+        ...(process.platform === 'darwin' ? [
+          { type: 'separator' },
+          { role: 'front' },
+          { type: 'separator' },
+          { role: 'window' }
+        ] : [
+          { role: 'close' }
+        ])
+      ]
+    }
+  ];
+
+  const menu = Menu.buildFromTemplate(menuTemplate);
+  Menu.setApplicationMenu(menu);
+
+  // --- Initial Window ---
   const filePathArg = process.argv.find(arg => arg.endsWith('.md'));
   if (filePathArg) {
     createWindow(path.resolve(filePathArg));
   } else {
     createWindow();
   }
-
-  globalShortcut.register('CommandOrControl+S', () => {
-    const window = BrowserWindow.getFocusedWindow();
-    if (window) {
-      window.webContents.send('request-save-file');
-    }
-  });
-
-  globalShortcut.register('CommandOrControl+O', () => {
-    dialog.showOpenDialog({
-      title: 'Open Markdown File',
-      filters: [{ name: 'Markdown Files', extensions: ['md'] }],
-      properties: ['openFile']
-    }).then(result => {
-      if (!result.canceled && result.filePaths.length > 0) {
-        createWindow(result.filePaths[0]);
-      }
-    });
-  });
-
-  globalShortcut.register('CommandOrControl+N', () => {
-    createWindow();
-  });
-
-  globalShortcut.register('CommandOrControl+P', () => {
-    const window = BrowserWindow.getFocusedWindow();
-    if (window) {
-      window.webContents.send('toggle-preview');
-    }
-  });
-
-  globalShortcut.register('CommandOrControl+G', () => {
-    const window = BrowserWindow.getFocusedWindow();
-    if (window) {
-      window.webContents.send('trigger-gemini');
-    }
-  });
-
-  globalShortcut.register('CommandOrControl+D', () => {
-    const window = BrowserWindow.getFocusedWindow();
-    if (window) {
-      window.webContents.send('toggle-theme');
-    }
-  });
 
   app.on('activate', () => {
     if (windows.size === 0) {
@@ -249,8 +348,51 @@ Configure a variável de ambiente GEMINI_API_KEY para usar esta funcionalidade.
   }
 });
 
-app.on('will-quit', () => {
-  globalShortcut.unregisterAll();
+ipcMain.handle('execute-command', async (event, command, params) => {
+  const scriptDir = path.join(app.getPath('home'), '.notes-s', command);
+  const scriptPath = path.join(scriptDir, 'index.py');
+
+  return new Promise((resolve) => {
+    if (!fs.existsSync(scriptPath)) {
+      const errorMessage = `Erro: Script não encontrado em ${scriptPath}`;
+      console.error(errorMessage);
+      resolve(errorMessage); // Resolve with an error message to show in the UI
+      return;
+    }
+
+    // Garante que o python seja encontrado no path do sistema
+    const pythonProcess = spawn('python3', [scriptPath, ...params], {
+      cwd: scriptDir // Define o diretório de trabalho para o do script
+    });
+
+    let stdout = '';
+    let stderr = '';
+
+    pythonProcess.stdout.on('data', (data) => {
+      stdout += data.toString();
+    });
+
+    pythonProcess.stderr.on('data', (data) => {
+      stderr += data.toString();
+    });
+
+    pythonProcess.on('close', (code) => {
+      if (code !== 0) {
+        const errorMessage = `Erro ao executar o script (código de saída: ${code}):\n${stderr}`;
+        console.error(errorMessage);
+        resolve(errorMessage); // Resolve with stderr
+      } else {
+        console.log(`Script executado com sucesso:\n${stdout}`);
+        resolve(stdout); // Resolve with stdout
+      }
+    });
+
+    pythonProcess.on('error', (err) => {
+      const errorMessage = `Falha ao iniciar o processo do script:\n${err.message}`;
+      console.error(errorMessage);
+      resolve(errorMessage); // Resolve with the spawn error
+    });
+  });
 });
 
 app.on('window-all-closed', () => {

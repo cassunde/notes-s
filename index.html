@@ -146,6 +146,36 @@
       setTheme(newTheme);
     });
 
+    window.electronAPI.onTriggerCommandExecution(async () => {
+      const selectionStart = editor.selectionStart;
+      const selectionEnd = editor.selectionEnd;
+      const selectedText = editor.value.substring(selectionStart, selectionEnd).trim();
+
+      if (!selectedText) {
+        console.log('Nenhum texto selecionado para executar.');
+        return;
+      }
+
+      const match = selectedText.match(/executar:\s*(\S+)\s*com\s*(.*)/);
+
+      if (match) {
+        const command = match[1];
+        const params = match[2] ? match[2].split(',').map(p => p.trim()) : [];
+
+        console.log(`Executando comando via atalho: ${command} com parâmetros:`, params);
+        
+        const result = await window.electronAPI.executeCommand(command, params);
+        
+        console.log('Resultado da execução:', result);
+        
+        const responseText = `\n\n--- Resultado de '${command}' ---\n${result}\n---------------------------\n`;
+        editor.value += responseText;
+        editor.scrollTop = editor.scrollHeight; // Rola para o final
+      } else {
+        console.log('O texto selecionado não corresponde ao formato "executar: ..."');
+      }
+    });
+
     // --- Wikilink Handling ---
     preview.addEventListener('click', (e) => {
       const link = e.target.closest('.wikilink');
